@@ -88,29 +88,34 @@ export default function Dashboard({ showToast }) {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid lg:grid-cols-3 gap-8 mb-8">
         {/* Complaints Table — takes 2/3 */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-sm font-bold text-gray-800">Recent Complaints</h2>
-            <div className="flex items-center gap-2">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+          className="lg:col-span-2 premium-card overflow-hidden"
+        >
+          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap bg-gray-50/30">
+            <h2 className="text-sm font-bold text-slate-800 tracking-tight">Recent Complaints</h2>
+            <div className="flex items-center gap-3">
               {/* Search */}
-              <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <div className="relative group">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search…"
+                  placeholder="Filter by ID or title..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-7 pr-7 py-1.5 bg-gray-50 rounded-lg text-xs outline-none border-2 border-transparent focus:border-[#1E3A8A] transition-all font-medium w-36"
+                  className="pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-medium w-48 shadow-sm"
                 />
-                {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={12} className="text-gray-400" /></button>}
+                {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 hover:bg-gray-100 p-0.5 rounded-md transition-colors"><X size={12} className="text-gray-400" /></button>}
               </div>
               {/* Status filter */}
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="px-2 py-1.5 bg-gray-50 rounded-lg text-xs font-medium outline-none cursor-pointer border-2 border-transparent focus:border-[#1E3A8A] transition-all"
+                className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-slate-600 outline-none cursor-pointer focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all shadow-sm"
               >
                 {['All', 'Pending', 'In Progress', 'Resolved', 'Escalated'].map(s => <option key={s}>{s}</option>)}
               </select>
@@ -119,90 +124,101 @@ export default function Dashboard({ showToast }) {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
+                <tr className="bg-gray-50/50 border-b border-gray-100">
                   {['ID', 'Title', 'Department', 'Status', 'Date'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50/50">
                 {loading ? (
-                  <TableRowSkeleton rows={6} />
+                  <TableRowSkeleton rows={7} />
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">No results found</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                       <Search size={32} className="text-gray-200" />
+                       <p className="text-sm font-semibold text-slate-400">No matching complaints found</p>
+                    </div>
+                  </td></tr>
                 ) : filtered.map((c, i) => (
                   <motion.tr
                     key={c.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors group"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 + i * 0.05, duration: 0.4 }}
+                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                   >
-                    <td className="px-4 py-3.5">
-                      <Link to={`/complaint/${c.id}`} className="text-xs font-bold text-[#1E3A8A] no-underline hover:underline">{c.id}</Link>
+                    <td className="px-6 py-5">
+                      <Link to={`/complaint/${c.id}`} className="text-[12px] font-black text-primary hover:text-primary-light no-underline tracking-tighter transition-colors">#{c.id}</Link>
                     </td>
-                    <td className="px-4 py-3.5">
-                      <p className="text-xs font-medium text-gray-700 max-w-[200px] truncate">{c.title}</p>
-                      <p className="text-[11px] text-gray-400">{c.category}</p>
+                    <td className="px-6 py-5">
+                      <p className="text-xs font-bold text-slate-700 max-w-[240px] truncate leading-relaxed">{c.title}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">{c.category}</p>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-gray-500 font-medium whitespace-nowrap">{c.department}</td>
-                    <td className="px-4 py-3.5"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-3.5 text-[11px] text-gray-400 whitespace-nowrap">{c.date}</td>
+                    <td className="px-6 py-5">
+                      <span className="text-[11px] text-slate-500 font-black tracking-tighter uppercase">{c.department}</span>
+                    </td>
+                    <td className="px-6 py-5"><StatusBadge status={c.status} /></td>
+                    <td className="px-6 py-5 text-[11px] text-slate-400 font-medium whitespace-nowrap">{c.date}</td>
                   </motion.tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
 
         {/* Department performance */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <h2 className="text-sm font-bold text-gray-800 mb-5">Department Performance</h2>
-          <div className="space-y-4">
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+          className="premium-card p-6"
+        >
+          <h2 className="text-sm font-bold text-slate-800 mb-6 tracking-tight">Department Performance</h2>
+          <div className="space-y-6">
             {DEPARTMENTS.map((d, i) => (
               <motion.div
                 key={d.name}
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.1 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 + i * 0.1 }}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-gray-700">{d.name}</p>
-                  <span className={`text-[11px] font-bold ${d.pct >= 80 ? 'text-green-600' : d.pct >= 65 ? 'text-yellow-600' : 'text-red-500'}`}>{d.pct}%</span>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-black text-slate-600 uppercase tracking-tighter">{d.name}</p>
+                  <span className={`text-[11px] font-black ${d.pct >= 80 ? 'text-emerald-600' : d.pct >= 65 ? 'text-amber-600' : 'text-rose-500'}`}>{d.pct}%</span>
                 </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden ring-1 ring-slate-200/50">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${d.pct}%` }}
-                    transition={{ duration: 0.8, delay: 0.4 + i * 0.1 }}
-                    className={`h-full rounded-full ${d.pct >= 80 ? 'bg-green-500' : d.pct >= 65 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                    transition={{ duration: 1, delay: 0.8 + i * 0.1, ease: [0.23, 1, 0.32, 1] }}
+                    className={`h-full rounded-full ${d.pct >= 80 ? 'bg-emerald-500' : d.pct >= 65 ? 'bg-amber-400' : 'bg-rose-400'}`}
                   />
                 </div>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-[11px] text-gray-400">{d.resolved} resolved</p>
-                  <p className="text-[11px] text-gray-400">{d.complaints} total</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-slate-400 font-bold tracking-tight">{d.resolved} Resolved</p>
+                  <p className="text-[10px] text-slate-400 font-bold tracking-tight">{d.complaints} Total</p>
                 </div>
               </motion.div>
             ))}
           </div>
 
           {/* Quick actions */}
-          <div className="mt-6 pt-5 border-t border-gray-100 space-y-2">
-            <p className="text-xs font-bold text-gray-600 mb-3">Quick Actions</p>
+          <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-3">
             {[
-              { label: 'Export Full Report', color: 'bg-[#1E3A8A] text-white' },
-              { label: 'Send Escalation Alerts', color: 'bg-red-50 text-red-600 border border-red-100' },
+              { label: 'Export Analytics Report', color: 'bg-slate-900 text-white shadow-lg shadow-slate-200' },
+              { label: 'Resource Allocation', color: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50' },
             ].map(btn => (
               <button
                 key={btn.label}
                 onClick={() => showToast && showToast(`${btn.label} triggered!`, 'info')}
-                className={`w-full py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-80 ${btn.color}`}
+                className={`w-full py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] ${btn.color}`}
               >
                 {btn.label}
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   )

@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Home from './pages/Home'
@@ -8,6 +9,34 @@ import SubmitComplaint from './pages/SubmitComplaint'
 import TrackComplaint from './pages/TrackComplaint'
 import ComplaintDetails from './pages/ComplaintDetails'
 import ToastNotification from './components/ToastNotification'
+
+const PageTransition = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+  >
+    {children}
+  </motion.div>
+)
+
+function AnimatedRoutes({ showToast }) {
+  const location = useLocation()
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PageTransition><Home showToast={showToast} /></PageTransition>} />
+        <Route path="/dashboard" element={<PageTransition><Dashboard showToast={showToast} /></PageTransition>} />
+        <Route path="/submit" element={<PageTransition><SubmitComplaint showToast={showToast} /></PageTransition>} />
+        <Route path="/track" element={<PageTransition><TrackComplaint /></PageTransition>} />
+        <Route path="/complaint/:id" element={<PageTransition><ComplaintDetails /></PageTransition>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  )
+}
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -20,19 +49,12 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#F9FAFB] font-sans">
+      <div className="min-h-screen bg-[#F8FAFC] font-sans selection:bg-blue-100 selection:text-blue-900">
         <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         <div className="flex pt-16">
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           <main className="flex-1 min-h-[calc(100vh-4rem)] overflow-x-hidden">
-            <Routes>
-              <Route path="/" element={<Home showToast={showToast} />} />
-              <Route path="/dashboard" element={<Dashboard showToast={showToast} />} />
-              <Route path="/submit" element={<SubmitComplaint showToast={showToast} />} />
-              <Route path="/track" element={<TrackComplaint />} />
-              <Route path="/complaint/:id" element={<ComplaintDetails />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <AnimatedRoutes showToast={showToast} />
           </main>
         </div>
         {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

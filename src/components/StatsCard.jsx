@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, ArrowUpRight } from 'lucide-react'
 
 function useCounter(target, duration = 1500) {
   const [count, setCount] = useState(0)
   useEffect(() => {
-    let start = 0
-    const step = target / (duration / 16)
-    const timer = setInterval(() => {
-      start += step
-      if (start >= target) {
-        setCount(target)
-        clearInterval(timer)
-      } else {
-        setCount(Math.floor(start))
+    let startTimestamp = null
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1)
+      setCount(Math.floor(progress * target))
+      if (progress < 1) {
+        window.requestAnimationFrame(step)
       }
-    }, 16)
-    return () => clearInterval(timer)
+    }
+    window.requestAnimationFrame(step)
   }, [target, duration])
   return count
 }
@@ -26,30 +24,40 @@ export default function StatsCard({ title, value, icon: Icon, color, trend, bgGr
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 cursor-default relative overflow-hidden"
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5, delay, ease: [0.23, 1, 0.32, 1] }}
+      whileHover={{ y: -6, shadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)" }}
+      className="premium-card p-6 cursor-default group"
     >
-      {/* background blob */}
-      <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10 ${bgGradient}`} />
-
       <div className="flex items-start justify-between relative z-10">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{title}</p>
-          <p className={`text-3xl font-black ${color}`}>{count.toLocaleString()}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{title}</p>
+            <div className={`w-1 h-1 rounded-full ${color.replace('text-', 'bg-')}`} />
+          </div>
+          <h3 className={`text-3xl font-black font-display tracking-tight ${color}`}>
+            {count.toLocaleString()}
+          </h3>
           {trend && (
-            <div className="flex items-center gap-1 mt-2">
-              <TrendingUp size={12} className="text-green-500" />
-              <span className="text-[11px] text-green-600 font-medium">{trend}</span>
+            <div className="flex items-center gap-1.5 mt-3">
+              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50 border border-emerald-100">
+                <ArrowUpRight size={10} className="text-emerald-600" />
+              </div>
+              <span className="text-[12px] text-emerald-600 font-bold">{trend}</span>
             </div>
           )}
         </div>
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${bgGradient}`}>
-          <Icon size={20} className="text-white" />
-        </div>
+        <motion.div 
+          whileHover={{ rotate: 5, scale: 1.1 }}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${bgGradient} ring-4 ring-white shadow-blue-900/10`}
+        >
+          <Icon size={24} className="text-white" />
+        </motion.div>
       </div>
+      
+      {/* Subtle bottom gradient sweep */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-slate-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
     </motion.div>
   )
 }
