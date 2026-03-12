@@ -27,69 +27,30 @@ export default function ComplaintForm({ onSuccess }) {
   const handleSubmit = async e => {
     e.preventDefault()
     setSubmitting(true)
+    
+    // Simulate API call
     await new Promise(r => setTimeout(r, 1800))
+    
+    const newComplaint = {
+      id: `C-${Math.floor(1000 + Math.random() * 9000)}`,
+      ...form,
+      status: 'Pending',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      department: 'Pending Assignment'
+    }
+
+    // Save to localStorage
+    const saved = JSON.parse(localStorage.getItem('user_complaints') || '[]')
+    localStorage.setItem('user_complaints', JSON.stringify([newComplaint, ...saved]))
+
     setSubmitting(false)
     setSubmitted(true)
     if (onSuccess) onSuccess()
   }
 
-  const FloatingInput = ({ name, label, icon: Icon, type = 'text' }) => (
-    <div className="relative">
-      <div className={`absolute left-3 top-3.5 transition-colors ${focused === name || form[name] ? 'text-[#1E3A8A]' : 'text-gray-400'}`}>
-        <Icon size={16} />
-      </div>
-      <input
-        name={name}
-        type={type}
-        value={form[name]}
-        onChange={handleChange}
-        onFocus={() => setFocused(name)}
-        onBlur={() => setFocused('')}
-        placeholder={label}
-        required
-        className={`w-full pl-10 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl text-sm font-medium text-gray-800 outline-none transition-all ${
-          focused === name ? 'border-[#1E3A8A] bg-white shadow-sm' : 'border-transparent hover:border-gray-200'
-        }`}
-      />
-    </div>
-  )
-
-  if (submitted) {
-    return (
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 200 }}
-        className="text-center py-12 px-6"
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.1, type: 'spring', stiffness: 250 }}
-          className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
-        >
-          <CheckCircle size={40} className="text-green-500" />
-        </motion.div>
-        <motion.h3 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="text-xl font-bold text-gray-800 mb-2">
-          Complaint Submitted!
-        </motion.h3>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }} className="text-gray-500 text-sm mb-6">
-          Your complaint has been received and assigned ID <span className="font-bold text-[#1E3A8A]">#C-{Math.floor(1000 + Math.random() * 9000)}</span>. You'll receive updates shortly.
-        </motion.p>
-        <motion.button
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
-          onClick={() => { setSubmitted(false); setForm({ title: '', description: '', category: '', location: '' }); setImage(null); setImagePreview(null) }}
-          className="px-6 py-2.5 bg-[#1E3A8A] text-white rounded-xl text-sm font-semibold hover:bg-[#1e40af] transition-colors"
-        >
-          Submit Another
-        </motion.button>
-      </motion.div>
-    )
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <FloatingInput name="title" label="Complaint Title" icon={FileText} />
+      <FloatingInput name="title" label="Complaint Title" icon={FileText} value={form.title} onChange={handleChange} focused={focused} setFocused={setFocused} />
 
       <div className="relative">
         <div className={`absolute left-3 top-3.5 transition-colors ${focused === 'desc' || form.description ? 'text-[#1E3A8A]' : 'text-gray-400'}`}>
@@ -126,7 +87,7 @@ export default function ComplaintForm({ onSuccess }) {
         </select>
       </div>
 
-      <FloatingInput name="location" label="Location / Area" icon={MapPin} />
+      <FloatingInput name="location" label="Location / Area" icon={MapPin} value={form.location} onChange={handleChange} focused={focused} setFocused={setFocused} />
 
       {/* Image Upload */}
       <div
@@ -174,3 +135,24 @@ export default function ComplaintForm({ onSuccess }) {
     </form>
   )
 }
+
+const FloatingInput = ({ name, label, icon: Icon, type = 'text', value, onChange, focused, setFocused }) => (
+  <div className="relative">
+    <div className={`absolute left-3 top-3.5 transition-colors ${focused === name || value ? 'text-[#1E3A8A]' : 'text-gray-400'}`}>
+      <Icon size={16} />
+    </div>
+    <input
+      name={name}
+      type={type}
+      value={value}
+      onChange={onChange}
+      onFocus={() => setFocused(name)}
+      onBlur={() => setFocused('')}
+      placeholder={label}
+      required
+      className={`w-full pl-10 pr-4 py-3.5 bg-gray-50 border-2 rounded-xl text-sm font-medium text-gray-800 outline-none transition-all ${
+        focused === name ? 'border-[#1E3A8A] bg-white shadow-sm' : 'border-transparent hover:border-gray-200'
+      }`}
+    />
+  </div>
+)

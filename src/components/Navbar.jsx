@@ -6,6 +6,7 @@ import { Bell, ChevronDown, Shield, Menu, X, User, Settings, LogOut } from 'luci
 export default function Navbar({ onMenuClick }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const location = useLocation()
 
   const navLinks = [
@@ -126,12 +127,16 @@ export default function Navbar({ onMenuClick }) {
                   className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden"
                 >
                   {[
-                    { icon: User, label: 'Profile' },
+                    { icon: User, label: 'Profile', onClick: () => setProfileOpen(true) },
                     { icon: Settings, label: 'Settings' },
                     { icon: LogOut, label: 'Logout', danger: true },
                   ].map(item => (
                     <button
                       key={item.label}
+                      onClick={() => {
+                        if (item.onClick) item.onClick()
+                        setDropdownOpen(false)
+                      }}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 ${item.danger ? 'text-[#EF4444]' : 'text-gray-700'}`}
                     >
                       <item.icon size={15} />
@@ -144,6 +149,70 @@ export default function Navbar({ onMenuClick }) {
           </div>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      <AnimatePresence>
+        {profileOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProfileOpen(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="h-24 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB]" />
+              <div className="px-6 pb-6">
+                <div className="relative -mt-12 mb-4">
+                  <div className="w-24 h-24 rounded-2xl bg-white p-1 shadow-lg">
+                    <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#1E3A8A] to-[#14B8A6] flex items-center justify-center text-white text-3xl font-bold">
+                      AD
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">Admin User</h2>
+                    <p className="text-sm text-gray-500">administrator@smartcity.gov</p>
+                  </div>
+                  <button
+                    onClick={() => setProfileOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X size={18} className="text-gray-400" />
+                  </button>
+                </div>
+                <div className="mt-6 space-y-4">
+                  <div className="p-3 bg-gray-50 rounded-xl">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Role</p>
+                    <p className="text-sm font-semibold text-gray-700">Senior Municipal Administrator</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Department</p>
+                    <p className="text-sm font-semibold text-gray-700">Public Grievance & Redressal</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Employee ID</p>
+                    <p className="text-sm font-semibold text-gray-700">EMP-2026-9942</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setProfileOpen(false)}
+                  className="w-full mt-6 py-3 bg-[#1E3A8A] text-white rounded-xl font-semibold text-sm hover:bg-[#1e40af] transition-colors"
+                >
+                  Edit Profile
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </nav>
   )
 }

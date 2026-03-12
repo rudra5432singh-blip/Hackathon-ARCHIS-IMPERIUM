@@ -22,8 +22,14 @@ export default function TrackComplaint() {
   const [status, setStatus] = useState('All')
   const [category, setCategory] = useState('All')
   const [loading] = useState(false)
+  const [allComplaints, setAllComplaints] = useState([])
 
-  const filtered = COMPLAINTS.filter(c => {
+  useState(() => {
+    const saved = JSON.parse(localStorage.getItem('user_complaints') || '[]')
+    setAllComplaints([...saved, ...COMPLAINTS])
+  }, [])
+
+  const filtered = allComplaints.filter(c => {
     const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase()) || c.location.toLowerCase().includes(search.toLowerCase())
     const matchStatus = status === 'All' || c.status === status
     const matchCat = category === 'All' || c.category === category

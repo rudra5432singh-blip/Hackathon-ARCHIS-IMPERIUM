@@ -34,13 +34,16 @@ export default function Dashboard({ showToast }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [allComplaints, setAllComplaints] = useState([])
 
   useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('user_complaints') || '[]')
+    setAllComplaints([...saved, ...COMPLAINTS])
     const t = setTimeout(() => setLoading(false), 1200)
     return () => clearTimeout(t)
   }, [])
 
-  const filtered = COMPLAINTS.filter(c => {
+  const filtered = allComplaints.filter(c => {
     const s = search.toLowerCase()
     const matchSearch = c.title.toLowerCase().includes(s) || c.id.toLowerCase().includes(s)
     const matchStatus = statusFilter === 'All' || c.status === statusFilter
