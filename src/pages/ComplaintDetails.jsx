@@ -1,127 +1,160 @@
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Building2, Tag, Calendar, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock, User, Building, MessageSquare, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
-import ComplaintTimeline from '../components/ComplaintTimeline'
-
-const DETAILS = {
-  'C-1001': {
-    title: 'Large pothole on MG Road near signal',
-    description: 'A massive pothole has formed near the main traffic signal causing accidents daily. Vehicles are swerving dangerously to avoid it. The pothole is approximately 2 feet wide and 6 inches deep. Multiple two-wheelers have had accidents here in the past week.',
-    category: 'Roads & Infrastructure',
-    department: 'PWD - Roads Division',
-    location: 'MG Road, near Halasur Signal, Bengaluru',
-    date: 'March 08, 2026',
-    status: 'Resolved',
-    image: null,
-    timeline: [
-      { type: 'submitted', title: 'Complaint Submitted', time: 'Mar 08, 9:14 AM', description: 'Complaint received and logged in the system.', by: 'Citizen Portal' },
-      { type: 'assigned', title: 'Assigned to Department', time: 'Mar 08, 10:02 AM', description: 'Auto-routed to PWD Roads Division based on category.', by: 'SCRS Auto Router' },
-      { type: 'in-progress', title: 'Work Order Created', time: 'Mar 09, 11:30 AM', description: 'Field team dispatched to inspect site. Material procurement initiated.', by: 'Eng. Ramesh Kumar, PWD' },
-      { type: 'in-progress', title: 'Repair In Progress', time: 'Mar 10, 8:00 AM', description: 'Road crew on site. Pothole filling underway.', by: 'Field Team A' },
-      { type: 'resolved', title: 'Complaint Resolved', time: 'Mar 10, 4:30 PM', description: 'Pothole successfully repaired and road surface restored.', by: 'Superintendent, PWD' },
-    ],
-  },
-  'C-1039': {
-    title: 'Power outage affecting hospital block',
-    description: 'Complete power outage affecting the hospital block in our area. Medical equipment is running on backup generators. Situation is critical as fuel for generators will last only 6 more hours. Immediate intervention required.',
-    category: 'Electricity',
-    department: 'BESCOM - Power Distribution',
-    location: 'Rajajinagar, Near General Hospital, Bengaluru',
-    date: 'March 09, 2026',
-    status: 'Escalated',
-    image: null,
-    timeline: [
-      { type: 'submitted', title: 'Complaint Submitted', time: 'Mar 09, 7:22 AM', description: 'Emergency complaint marked as high priority.', by: 'Hospital Admin Portal' },
-      { type: 'assigned', title: 'Escalated to Senior Officer', time: 'Mar 09, 7:25 AM', description: 'Auto-escalated due to healthcare facility involvement. SEO notified.', by: 'SCRS Escalation Engine' },
-      { type: 'escalated', title: 'Awaiting Emergency Crew', time: 'Mar 09, 8:10 AM', description: 'Emergency crew en route. ETA 45 mins. Backup transformer being arranged.', by: 'BESCOM Emergency Cell' },
-    ],
-  },
-}
-
-const DEFAULT_DETAIL = {
-  title: 'Complaint Not Found',
-  description: 'This complaint does not exist or has been removed.',
-  category: 'Unknown', department: 'Unknown', location: 'Unknown',
-  date: 'N/A', status: 'Pending', image: null, timeline: [],
-}
-
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
-    <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
-      <Icon size={15} className="text-[#1E3A8A]" />
-    </div>
-    <div>
-      <p className="text-[11px] text-gray-400 font-medium">{label}</p>
-      <p className="text-sm font-semibold text-gray-700 mt-0.5">{value}</p>
-    </div>
-  </div>
-)
+import { useAuth } from '../context/AuthContext'
+import axios from 'axios'
 
 export default function ComplaintDetails() {
   const { id } = useParams()
-  const detail = DETAILS[id] || { ...DEFAULT_DETAIL, title: `Complaint ${id}`, timeline: [
-    { type: 'submitted', title: 'Complaint Submitted', time: 'Recently', description: 'Complaint received and logged.', by: 'Citizen Portal' },
-    { type: 'assigned', title: 'Department Assigned', time: 'Processing', description: 'Being routed to concerned department.', by: 'SCRS Router' },
-  ]}
+  const { API_URL, user, socket } = useAuth()
+  const [complaint, setComplaint] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
+  const [comment, setComment] = useState('')
+
+  const fetchDetails = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/complaints/${id}`);
+      setComplaint(res.data);
+    } catch (err) {
+      console.error('Fetch detail error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetails();
+  }, [id, API_URL]);
+
+  useEffect(() => {
+    if (socket) {
+      const handleUpdate = (update) => {
+        if (update.id === id) {
+          fetchDetails();
+        }
+      };
+      socket.on('complaintUpdated', handleUpdate);
+      return () => socket.off('complaintUpdated', handleUpdate);
+    }
+  }, [socket, id]);
+
+  const handleStatusUpdate = async (newStatus) => {
+    setUpdating(true);
+    try {
+      await axios.put(`${API_URL}/complaints/${id}/status`, { status: newStatus, comment });
+      setComment('');
+      fetchDetails();
+    } catch (err) {
+      console.error('Update status error:', err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+  if (!complaint) return <div className="p-10 text-center">Complaint not found</div>;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-5xl mx-auto px-4 py-8 lg:px-8"
-    >
-      {/* Back */}
-      <Link to="/track" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#1E3A8A] transition-colors no-underline mb-6 font-medium">
-        <ArrowLeft size={16} /> Back to Complaints
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors mb-8">
+        <ArrowLeft size={16} /> Back to Dashboard
       </Link>
 
-      {/* Title header */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-lg">{id}</span>
-              <StatusBadge status={detail.status} />
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="premium-card p-8 bg-white">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-xs font-black text-primary p-2 bg-blue-50 rounded-lg tracking-tighter">CASE #{complaint.id}</span>
+              <StatusBadge status={complaint.status} />
             </div>
-            <h1 className="text-xl font-black text-gray-800 leading-snug">{detail.title}</h1>
-            <p className="text-sm text-gray-500 mt-2 leading-relaxed">{detail.description}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-5">
-        {/* Left: info + image */}
-        <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 className="text-sm font-bold text-gray-700 mb-2">Complaint Info</h2>
-            <InfoRow icon={Tag} label="Category" value={detail.category} />
-            <InfoRow icon={Building2} label="Department" value={detail.department} />
-            <InfoRow icon={MapPin} label="Location" value={detail.location} />
-            <InfoRow icon={Calendar} label="Submitted" value={detail.date} />
-          </div>
-
-          {/* Image panel */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 className="text-sm font-bold text-gray-700 mb-3">Attached Evidence</h2>
-            {detail.image ? (
-              <img src={detail.image} alt="Complaint" className="w-full rounded-xl object-cover max-h-48" />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-xl text-gray-400">
-                <ImageIcon size={28} className="mb-2" />
-                <p className="text-xs font-medium">No image attached</p>
+            <h1 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">{complaint.title}</h1>
+            <p className="text-slate-600 text-sm leading-relaxed mb-8">{complaint.description}</p>
+            
+            <div className="grid grid-cols-2 gap-4 pb-8 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><MapPin size={16} /></div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Location</p>
+                  <p className="text-xs font-bold text-slate-700">{complaint.location || 'Not specified'}</p>
+                </div>
               </div>
-            )}
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg text-slate-400"><Clock size={16} /></div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Reported On</p>
+                  <p className="text-xs font-bold text-slate-700">{new Date(complaint.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-8">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-4">Timeline & Updates</h3>
+              <div className="space-y-6">
+                {complaint.ComplaintUpdates?.map((u, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-blue-50"></div>
+                      <div className="w-0.5 flex-1 bg-slate-100 mt-2"></div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[11px] font-black text-slate-700">{u.status}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">— {new Date(u.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        {u.comment || 'Status updated by department.'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Right: Timeline */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-bold text-gray-700 mb-6">Complaint Timeline</h2>
-          <ComplaintTimeline events={detail.timeline} />
+        <div className="space-y-6">
+          <div className="premium-card p-6 bg-slate-900 text-white">
+            <h3 className="text-xs font-black uppercase tracking-widest mb-6 text-slate-400">Department Node</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Building size={18} className="text-primary-light" />
+                <p className="text-sm font-bold">{complaint.Department?.name || 'Unassigned'}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <AlertCircle size={18} className="text-amber-400" />
+                <p className="text-sm font-bold uppercase tracking-tighter">Priority: {complaint.priority}</p>
+              </div>
+            </div>
+          </div>
+
+          {user?.role === 'Department Admin' && user?.department_id === complaint.department_id && (
+            <div className="premium-card p-6 bg-white border-2 border-primary/10">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-4 text-slate-800">Admin Actions</h3>
+              <textarea
+                placeholder="Add internal comment..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full premium-input h-24 mb-4 text-xs"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => handleStatusUpdate('In Progress')}
+                  disabled={updating}
+                  className="premium-button bg-amber-500 text-white text-[10px] h-10"
+                >In Progress</button>
+                <button 
+                  onClick={() => handleStatusUpdate('Resolved')}
+                  disabled={updating}
+                  className="premium-button bg-emerald-500 text-white text-[10px] h-10"
+                >Resolved</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

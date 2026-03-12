@@ -1,17 +1,54 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, X, CheckCircle, Loader2, MapPin, FileText, Tag, AlignLeft, Image } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import axios from 'axios'
 
 const categories = ['Roads & Infrastructure', 'Water Supply', 'Electricity', 'Sanitation', 'Public Safety', 'Parks & Recreation', 'Other']
 
-export default function ComplaintForm({ onSuccess }) {
-  const [form, setForm] = useState({ title: '', description: '', category: '', location: '' })
+export default function ComplaintForm({ onSuccess, showToast }) {
+  const { API_URL } = useAuth()
+  const [form, setForm] = useState({ title: '', description: '', category: '', location: '', latitude: null, longitude: null })
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [focused, setFocused] = useState('')
+  const [aiSuggestions, setAiSuggestions] = useState(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const fileRef = useRef()
+
+  useEffect(() => {
+    if (form.description.length < 10) {
+      setAiSuggestions(null)
+      return
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsAnalyzing(true)
+      try {
+        const res = await axios.post(`${API_URL}/complaints/analyze`, { description: form.description });
+        setAiSuggestions(res.data)
+      } catch (err) {
+        console.error('AI Analysis error:', err)
+      } finally {
+        setIsAnalyzing(false)
+      }
+    }, 1000)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [form.description, API_URL])
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }))
+        },
+        (err) => console.warn('Geolocation error:', err)
+      )
+    }
+  }, [])
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -28,24 +65,22 @@ export default function ComplaintForm({ onSuccess }) {
     e.preventDefault()
     setSubmitting(true)
     
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 1800))
-    
-    const newComplaint = {
-      id: `C-${Math.floor(1000 + Math.random() * 9000)}`,
-      ...form,
-      status: 'Pending',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-      department: 'Pending Assignment'
+    try {
+      const response = await axios.post(`${API_URL}/complaints`, {
+        ...form,
+        image_url: imagePreview
+      });
+      
+      setSubmitted(true)
+      showToast && showToast('Complaint registered successfully!', 'success');
+      if (onSuccess) onSuccess()
+    } catch (err) {
+      console.error('Submission error:', err);
+      const errorMsg = err.response?.data?.error || 'Failed to submit complaint. Please check your connection.';
+      showToast && showToast(errorMsg, 'error');
+    } finally {
+      setSubmitting(false)
     }
-
-    // Save to localStorage
-    const saved = JSON.parse(localStorage.getItem('user_complaints') || '[]')
-    localStorage.setItem('user_complaints', JSON.stringify([newComplaint, ...saved]))
-
-    setSubmitting(false)
-    setSubmitted(true)
-    if (onSuccess) onSuccess()
   }
 
   if (submitted) {
@@ -79,11 +114,11 @@ export default function ComplaintForm({ onSuccess }) {
         >
           <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Submission Successful</h3>
           <p className="text-slate-500 text-sm mb-10 max-w-[280px] mx-auto leading-relaxed">
-            Your complaint has been registered and is being routed for immediate action.
+            Your complaint has been registered and auto-categorized by our AI for immediate action.
           </p>
           
           <button
-            onClick={() => { setSubmitted(false); setForm({ title: '', description: '', category: '', location: '' }); setImage(null); setImagePreview(null) }}
+            onClick={() => { setSubmitted(false); setForm({ title: '', description: '', category: '', location: '', latitude: null, longitude: null }); setImage(null); setImagePreview(null) }}
             className="premium-button bg-primary text-white hover:bg-primary-light shadow-xl shadow-blue-500/20 px-8"
           >
             Submit Another
@@ -113,6 +148,65 @@ export default function ComplaintForm({ onSuccess }) {
           className={`premium-input w-full pl-10 resize-none ${focused === 'desc' ? 'border-primary ring-4 ring-primary/5' : ''}`}
         />
       </div>
+
+      <AnimatePresence>
+        {(isAnalyzing || aiSuggestions) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 mb-2">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-primary rounded-lg flex items-center justify-center">
+                    <CheckCircle className="text-white" size={12} />
+                  </div>
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">AI Smart Assistant</span>
+                </div>
+                {isAnalyzing && (
+                   <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                     <Loader2 size={12} className="text-primary" />
+                   </motion.div>
+                )}
+              </div>
+
+              {aiSuggestions && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-2 bg-white rounded-xl border border-blue-50">
+                       <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Detected Category</p>
+                       <p className="text-[11px] font-bold text-slate-700 capitalize">{aiSuggestions.category}</p>
+                    </div>
+                    <div className="p-2 bg-white rounded-xl border border-blue-50">
+                       <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Priority Level</p>
+                       <p className={`text-[11px] font-bold capitalize ${
+                         aiSuggestions.priority === 'urgent' ? 'text-rose-600' :
+                         aiSuggestions.priority === 'high' ? 'text-orange-600' : 'text-slate-600'
+                       }`}>{aiSuggestions.priority}</p>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white rounded-xl border border-blue-50">
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Suggested Department</p>
+                    <p className="text-[11px] font-bold text-slate-700">{aiSuggestions.deptName}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(f => ({ ...f, category: categories.find(c => c.toLowerCase().includes(aiSuggestions.category.toLowerCase())) || f.category }))
+                      setAiSuggestions(null)
+                    }}
+                    className="w-full py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/10 hover:bg-primary-light transition-all"
+                  >
+                    Confirm & Apply Suggestions
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="relative group">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
@@ -181,7 +275,7 @@ export default function ComplaintForm({ onSuccess }) {
             <span className="font-bold tracking-tight">Processing submission...</span>
           </>
         ) : (
-          <span className="font-bold tracking-tight">Submit Registration</span>
+          <span className="font-bold tracking-tight">Submit Complaint</span>
         )}
       </motion.button>
     </form>

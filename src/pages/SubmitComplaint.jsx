@@ -31,7 +31,10 @@ export default function SubmitComplaint({ showToast }) {
               <p className="text-white/60 text-xs mt-0.5">All fields marked are required</p>
             </div>
             <div className="p-6">
-              <ComplaintForm onSuccess={() => showToast && showToast('Complaint submitted successfully!', 'success')} />
+              <ComplaintForm 
+                onSuccess={() => showToast && showToast('Complaint submitted successfully!', 'success')} 
+                showToast={showToast}
+              />
             </div>
           </div>
         </div>
