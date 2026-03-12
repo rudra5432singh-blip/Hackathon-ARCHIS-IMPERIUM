@@ -21,23 +21,24 @@ const classifyComplaint = (description) => {
       }
       
       const deptNames = {
-        'ROAD': 'Roads & Infrastructure',
-        'GARBAGE': 'Sanitation',
+        'ROAD': 'Road Maintenance Department',
+        'GARBAGE': 'Sanitation Department',
         'ELECTRICITY': 'Electricity Department',
-        'WATER': 'Water Supply Board',
-        'DRAINAGE': 'Sewage & Drainage'
+        'WATER': 'Water Supply Department',
+        'DRAINAGE': 'Drainage Department'
       };
       
       return { 
         category: m.category, 
         priority: finalPriority, 
         deptCode: m.deptCode,
-        deptName: deptNames[m.deptCode] || 'General Maintenance'
+        deptName: deptNames[m.deptCode] || 'Unassigned',
+        department: deptNames[m.deptCode] || 'Unassigned'
       };
     }
   }
 
-  return { category: 'Other', priority: 'normal', deptCode: null };
+  return { category: 'other', priority: 'normal', deptCode: null, deptName: 'Unassigned', department: 'Unassigned' };
 };
 
 module.exports = { classifyComplaint };

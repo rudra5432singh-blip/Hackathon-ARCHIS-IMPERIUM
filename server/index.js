@@ -42,8 +42,25 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connected.');
     
-    // Sync models
-    await sequelize.sync({ force: false }); // Change to true if you need to reset
+    // Sync models (auto-migrate for local SQLite)
+    await sequelize.sync({ alter: true, force: false }); // Change to true if you need to reset
+
+    // Safety net: ensure newer columns exist in SQLite even if alter didn't apply
+    try {
+      const [columns] = await sequelize.query('PRAGMA table_info(Complaints)');
+      const colNames = (columns || []).map(c => c.name);
+      if (!colNames.includes('latitude')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN latitude FLOAT');
+      }
+      if (!colNames.includes('longitude')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN longitude FLOAT');
+      }
+      if (!colNames.includes('priority')) {
+        await sequelize.query("ALTER TABLE Complaints ADD COLUMN priority TEXT DEFAULT 'normal'");
+      }
+    } catch (err) {
+      console.warn('SQLite migration check failed:', err.message);
+    }
     
     // Seed Departments if empty
     const count = await Department.count();

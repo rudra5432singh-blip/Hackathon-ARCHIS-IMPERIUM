@@ -1,9 +1,25 @@
 const { Complaint, Department, ComplaintUpdate, User } = require('../models');
 const { classifyComplaint } = require('../services/aiService');
 
+const AI_CATEGORY_MAP = {
+  road: 'Roads & Infrastructure',
+  garbage: 'Sanitation',
+  streetlight: 'Electricity',
+  electricity: 'Electricity',
+  water: 'Water Supply',
+  drainage: 'Sanitation',
+  other: 'Other'
+};
+
+const mapAiCategory = (category) => {
+  if (!category) return null;
+  const key = category.toLowerCase();
+  return AI_CATEGORY_MAP[key] || category;
+};
+
 exports.createComplaint = async (req, res) => {
   try {
-    const { title, description, category, priority, image_url, location, latitude, longitude } = req.body;
+    const { title, description, category, priority, image_url, location, latitude, longitude, department_name, department_id } = req.body;
     const userId = req.user.id;
 
     // AI Fallback if not provided or confirmed by user
@@ -13,14 +29,23 @@ exports.createComplaint = async (req, res) => {
 
     const aiResult = classifyComplaint(description);
     
-    if (!finalCategory) finalCategory = aiResult.category;
+    if (!finalCategory) finalCategory = mapAiCategory(aiResult.category);
     if (!priority) finalPriority = aiResult.priority;
 
-    // Find department based on either provided category or AI result
-    const deptCode = aiResult.deptCode;
-    if (deptCode) {
-      const dept = await Department.findOne({ where: { code: deptCode } });
+    // Use user-provided department if available, else fallback to AI
+    if (department_id) {
+      finalDeptId = department_id;
+    } else if (department_name) {
+      const dept = await Department.findOne({ where: { name: department_name } });
       if (dept) finalDeptId = dept.id;
+    }
+
+    if (!finalDeptId) {
+      const deptCode = aiResult.deptCode;
+      if (deptCode) {
+        const dept = await Department.findOne({ where: { code: deptCode } });
+        if (dept) finalDeptId = dept.id;
+      }
     }
 
     const complaintId = `C-${Math.floor(1000 + Math.random() * 9000)}`;

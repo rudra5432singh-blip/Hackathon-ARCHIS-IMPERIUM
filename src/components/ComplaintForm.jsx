@@ -1,14 +1,55 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, X, CheckCircle, Loader2, MapPin, FileText, Tag, AlignLeft, Image } from 'lucide-react'
+import { Upload, X, CheckCircle, Loader2, MapPin, FileText, Tag, AlignLeft, Image, Building2, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
 const categories = ['Roads & Infrastructure', 'Water Supply', 'Electricity', 'Sanitation', 'Public Safety', 'Parks & Recreation', 'Other']
+const priorities = ['low', 'normal', 'high', 'urgent']
+const departments = [
+  'Road Maintenance Department',
+  'Sanitation Department',
+  'Electricity Department',
+  'Water Supply Department',
+  'Drainage Department'
+]
+
+const aiCategoryMap = {
+  road: 'Roads & Infrastructure',
+  garbage: 'Sanitation',
+  streetlight: 'Electricity',
+  electricity: 'Electricity',
+  water: 'Water Supply',
+  drainage: 'Sanitation',
+  other: 'Other'
+}
+
+const aiDepartmentMap = {
+  'roads & infrastructure': 'Road Maintenance Department',
+  'road maintenance': 'Road Maintenance Department',
+  sanitation: 'Sanitation Department',
+  'electricity department': 'Electricity Department',
+  'water supply board': 'Water Supply Department',
+  'water supply department': 'Water Supply Department',
+  'sewage & drainage': 'Drainage Department',
+  'drainage department': 'Drainage Department'
+}
+
+const mapAiCategory = (category) => {
+  if (!category) return ''
+  const key = category.toLowerCase()
+  return aiCategoryMap[key] || categories.find(c => c.toLowerCase().includes(key)) || ''
+}
+
+const mapAiDepartment = (department) => {
+  if (!department) return ''
+  const key = department.toLowerCase()
+  return aiDepartmentMap[key] || departments.find(d => d.toLowerCase() === key) || departments.find(d => d.toLowerCase().includes(key)) || department
+}
 
 export default function ComplaintForm({ onSuccess, showToast }) {
   const { API_URL } = useAuth()
-  const [form, setForm] = useState({ title: '', description: '', category: '', location: '', latitude: null, longitude: null })
+  const [form, setForm] = useState({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null })
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -16,11 +57,13 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   const [focused, setFocused] = useState('')
   const [aiSuggestions, setAiSuggestions] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [aiApplied, setAiApplied] = useState(false)
   const fileRef = useRef()
 
   useEffect(() => {
     if (form.description.length < 10) {
       setAiSuggestions(null)
+      setAiApplied(false)
       return
     }
 
@@ -29,6 +72,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
       try {
         const res = await axios.post(`${API_URL}/complaints/analyze`, { description: form.description });
         setAiSuggestions(res.data)
+        setAiApplied(false)
       } catch (err) {
         console.error('AI Analysis error:', err)
       } finally {
@@ -118,7 +162,14 @@ export default function ComplaintForm({ onSuccess, showToast }) {
           </p>
           
           <button
-            onClick={() => { setSubmitted(false); setForm({ title: '', description: '', category: '', location: '', latitude: null, longitude: null }); setImage(null); setImagePreview(null) }}
+            onClick={() => {
+              setSubmitted(false)
+              setForm({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null })
+              setImage(null)
+              setImagePreview(null)
+              setAiSuggestions(null)
+              setAiApplied(false)
+            }}
             className="premium-button bg-primary text-white hover:bg-primary-light shadow-xl shadow-blue-500/20 px-8"
           >
             Submit Another
@@ -177,30 +228,42 @@ export default function ComplaintForm({ onSuccess, showToast }) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-2 bg-white rounded-xl border border-blue-50">
                        <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Detected Category</p>
-                       <p className="text-[11px] font-bold text-slate-700 capitalize">{aiSuggestions.category}</p>
+                       <p className="text-[11px] font-bold text-slate-700 capitalize">{aiSuggestions.category || 'other'}</p>
                     </div>
                     <div className="p-2 bg-white rounded-xl border border-blue-50">
                        <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Priority Level</p>
                        <p className={`text-[11px] font-bold capitalize ${
                          aiSuggestions.priority === 'urgent' ? 'text-rose-600' :
                          aiSuggestions.priority === 'high' ? 'text-orange-600' : 'text-slate-600'
-                       }`}>{aiSuggestions.priority}</p>
+                       }`}>{aiSuggestions.priority || 'normal'}</p>
                     </div>
                   </div>
                   <div className="p-2 bg-white rounded-xl border border-blue-50">
                     <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Suggested Department</p>
-                    <p className="text-[11px] font-bold text-slate-700">{aiSuggestions.deptName}</p>
+                    <p className="text-[11px] font-bold text-slate-700">{aiSuggestions.department || aiSuggestions.deptName || 'Unassigned'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setForm(f => ({ ...f, category: categories.find(c => c.toLowerCase().includes(aiSuggestions.category.toLowerCase())) || f.category }))
-                      setAiSuggestions(null)
+                      const mappedCategory = mapAiCategory(aiSuggestions?.category)
+                      const mappedDept = mapAiDepartment(aiSuggestions?.department || aiSuggestions?.deptName)
+                      const mappedPriority = aiSuggestions?.priority
+                      setForm(f => ({
+                        ...f,
+                        category: mappedCategory || f.category,
+                        priority: mappedPriority || f.priority,
+                        department_name: mappedDept || f.department_name
+                      }))
+                      setAiApplied(true)
                     }}
-                    className="w-full py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/10 hover:bg-primary-light transition-all"
+                    disabled={aiApplied}
+                    className={`w-full py-2 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/10 transition-all ${
+                      aiApplied ? 'bg-emerald-500 text-white cursor-default' : 'bg-primary text-white hover:bg-primary-light'
+                    }`}
                   >
-                    Confirm & Apply Suggestions
+                    {aiApplied ? 'Suggestions Applied' : 'Confirm & Apply Suggestions'}
                   </button>
+                  <p className="text-[10px] text-slate-500">You can adjust category, priority, or department below before submitting.</p>
                 </div>
               )}
             </div>
@@ -222,6 +285,38 @@ export default function ComplaintForm({ onSuccess, showToast }) {
           <option value="">Select Category</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="relative group">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+            <AlertTriangle size={16} />
+          </div>
+          <select
+            name="priority"
+            value={form.priority}
+            onChange={handleChange}
+            className="premium-input w-full pl-10 appearance-none cursor-pointer"
+          >
+            {priorities.map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="relative group">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+            <Building2 size={16} />
+          </div>
+          <select
+            name="department_name"
+            value={form.department_name}
+            onChange={handleChange}
+            className="premium-input w-full pl-10 appearance-none cursor-pointer"
+          >
+            <option value="">Auto-detect Department</option>
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
       </div>
 
       <FloatingInput name="location" label="Location / Area" icon={MapPin} value={form.location} onChange={handleChange} focused={focused} setFocused={setFocused} />
