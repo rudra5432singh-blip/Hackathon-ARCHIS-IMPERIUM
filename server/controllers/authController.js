@@ -28,7 +28,7 @@ exports.signup = async (req, res) => {
     });
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, department_id: user.department_id },
+      { id: user.id, name: user.name, email: user.email, role: user.role, department_id: user.department_id },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -50,7 +50,7 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials.' });
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, department_id: user.department_id },
+      { id: user.id, name: user.name, email: user.email, role: user.role, department_id: user.department_id },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );

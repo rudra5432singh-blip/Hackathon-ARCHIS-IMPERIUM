@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, X, CheckCircle, Loader2, MapPin, FileText, Tag, AlignLeft, Image, Building2, AlertTriangle } from 'lucide-react'
+import { Upload, X, CheckCircle, Loader2, MapPin, FileText, Tag, AlignLeft, Image, Building2, AlertTriangle, Phone } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
 
@@ -49,7 +49,7 @@ const mapAiDepartment = (department) => {
 
 export default function ComplaintForm({ onSuccess, showToast }) {
   const { API_URL } = useAuth()
-  const [form, setForm] = useState({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null })
+  const [form, setForm] = useState({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null, phone_number: '' })
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -157,14 +157,17 @@ export default function ComplaintForm({ onSuccess, showToast }) {
           transition={{ delay: 0.6 }}
         >
           <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Submission Successful</h3>
-          <p className="text-slate-500 text-sm mb-10 max-w-[280px] mx-auto leading-relaxed">
-            Your complaint has been registered and auto-categorized by our AI for immediate action.
+          <p className="text-slate-500 text-sm mb-4 max-w-[300px] mx-auto leading-relaxed">
+            Your complaint has been registered successfully. A confirmation message has been sent to your phone.
+          </p>
+          <p className="text-xs text-slate-400 mb-10 max-w-[280px] mx-auto leading-relaxed">
+            Our AI has categorized and routed it to the relevant department for immediate action.
           </p>
           
           <button
             onClick={() => {
               setSubmitted(false)
-              setForm({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null })
+              setForm({ title: '', description: '', category: '', priority: 'normal', department_name: '', location: '', latitude: null, longitude: null, phone_number: '' })
               setImage(null)
               setImagePreview(null)
               setAiSuggestions(null)
@@ -182,6 +185,8 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <FloatingInput name="title" label="Complaint Title" icon={FileText} value={form.title} onChange={handleChange} focused={focused} setFocused={setFocused} />
+
+      <FloatingInput name="phone_number" label="Phone Number (e.g. +91XXXXXXXXXX)" icon={Phone} type="tel" value={form.phone_number} onChange={handleChange} focused={focused} setFocused={setFocused} required={false} />
 
       <div className="relative group">
         <div className={`absolute left-3 top-4 transition-colors ${focused === 'desc' || form.description ? 'text-primary' : 'text-slate-400'}`}>
@@ -377,7 +382,7 @@ export default function ComplaintForm({ onSuccess, showToast }) {
   )
 }
 
-const FloatingInput = ({ name, label, icon: Icon, type = 'text', value, onChange, focused, setFocused }) => (
+const FloatingInput = ({ name, label, icon: Icon, type = 'text', value, onChange, focused, setFocused, required = true }) => (
   <div className="relative group">
     <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${focused === name || value ? 'text-primary' : 'text-slate-400'}`}>
       <Icon size={16} />
@@ -389,8 +394,8 @@ const FloatingInput = ({ name, label, icon: Icon, type = 'text', value, onChange
       onChange={onChange}
       onFocus={() => setFocused(name)}
       onBlur={() => setFocused('')}
-      placeholder={label}
-      required
+      placeholder={required ? label : `${label} (optional)`}
+      required={required}
       className={`premium-input w-full pl-10 ${focused === name ? 'border-primary ring-4 ring-primary/5 shadow-sm' : ''}`}
     />
   </div>

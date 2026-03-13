@@ -2,8 +2,10 @@ const Complaint = require('../models/Complaint');
 const Department = require('../models/Department');
 const User = require('../models/User');
 const ComplaintVote = require('../models/ComplaintVote');
-const ComplaintUpdate = require('../models/ComplaintUpdate'); // Added this back as it was removed by the instruction
-const aiService = require('../services/aiService');
+const ComplaintUpdate = require('../models/ComplaintUpdate');
+const { classifyComplaint } = require('../services/aiService');
+const { sendNotification } = require('../services/notificationService');
+
 
 const AI_CATEGORY_MAP = {
   road: 'Roads & Infrastructure',
@@ -17,8 +19,10 @@ const AI_CATEGORY_MAP = {
 
 exports.createComplaint = async (req, res) => {
   try {
-    const { title, description, image_url, location, latitude, longitude } = req.body;
+    const { title, description, image_url, location, latitude, longitude, phone_number, name } = req.body;
     const userId = req.user.id;
+    // Fallback if name is not explicitly provided in body (Citizen user usually has it in token as req.user.name, but passing it explicitly from form is safer)
+    const citizenName = name || req.user.name || 'Citizen';
 
     const aiResult = await classifyComplaint(description);
 
@@ -39,11 +43,15 @@ exports.createComplaint = async (req, res) => {
       location,
       latitude,
       longitude,
+      phone_number,
       created_by: userId,
       status: 'Pending'
     });
 
     console.log('Complaint created:', complaint.id);
+
+    // Send Twilio notification
+    await sendNotification(phone_number, complaint.id, aiResult.summary, citizenName);
 
     // Emit socket event
     const io = req.app.get('io');

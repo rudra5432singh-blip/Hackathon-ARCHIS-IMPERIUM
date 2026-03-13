@@ -77,6 +77,10 @@ const Complaint = sequelize.define('Complaint', {
   votes: {
     type: DataTypes.INTEGER,
     defaultValue: 0
+  },
+  phone_number: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   timestamps: true,

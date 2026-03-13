@@ -52,8 +52,9 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('Database connected.');
     
-    // Sync models (auto-migrate for local SQLite)
-    await sequelize.sync({ alter: true, force: false }); // Change to true if you need to reset
+    // Sync models — use force: false to avoid SQLite FK constraint errors.
+    // New columns are added by the PRAGMA-based migration block below.
+    await sequelize.sync({ force: false });
 
     // Safety net: ensure newer columns exist in SQLite even if alter didn't apply
     try {
@@ -100,6 +101,14 @@ const startServer = async () => {
         try {
           await sequelize.query('ALTER TABLE Complaints ADD COLUMN votes INTEGER DEFAULT 0');
           console.log('Added votes column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
+      if (!colNames.includes('phone_number')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN phone_number TEXT');
+          console.log('Added phone_number column successfully.');
         } catch (e) {
           if (!e.message.includes('duplicate column name')) console.log(e.message);
         }
