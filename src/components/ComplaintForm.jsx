@@ -70,7 +70,10 @@ export default function ComplaintForm({ onSuccess, showToast }) {
     const delayDebounceFn = setTimeout(async () => {
       setIsAnalyzing(true)
       try {
-        const res = await axios.post(`${API_URL}/complaints/analyze`, { description: form.description });
+        const token = localStorage.getItem('token');
+        const res = await axios.post(`${API_URL}/complaints/analyze`, { description: form.description }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setAiSuggestions(res.data)
         setAiApplied(false)
       } catch (err) {

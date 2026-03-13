@@ -29,6 +29,12 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// Request Logging Middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/complaints', require('./routes/complaints'));
@@ -109,6 +115,22 @@ const startServer = async () => {
         try {
           await sequelize.query('ALTER TABLE Complaints ADD COLUMN phone_number TEXT');
           console.log('Added phone_number column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
+      if (!colNames.includes('citizen_recommendation')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN citizen_recommendation TEXT');
+          console.log('Added citizen_recommendation column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
+      if (!colNames.includes('authority_recommendation')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN authority_recommendation TEXT');
+          console.log('Added authority_recommendation column successfully.');
         } catch (e) {
           if (!e.message.includes('duplicate column name')) console.log(e.message);
         }

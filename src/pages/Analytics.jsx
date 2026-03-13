@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Map as MapIcon, TrendingUp, AlertCircle, FileText } from 'lucide-react';
+import { Activity, Map as MapIcon, TrendingUp, AlertCircle, FileText, PieChart as PieIcon, BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import HeatmapMap from '../components/HeatmapMap';
 import AnalyticsFilters from '../components/AnalyticsFilters';
 import StatsCard from '../components/StatsCard';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement } from 'chart.js';
+import { Pie, Bar, Line } from 'react-chartjs-2';
+
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement);
 
 export default function Analytics() {
   const { API_URL, socket } = useAuth();
   const [complaints, setComplaints] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     category: '',
     status: '',
@@ -18,49 +24,78 @@ export default function Analytics() {
     endDate: ''
   });
 
-  const fetchLocations = async () => {
+  const fetchData = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const params = new URLSearchParams();
       if (filters.category) params.append('category', filters.category);
       if (filters.status) params.append('status', filters.status);
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      const res = await axios.get(`${API_URL}/analytics/complaint-locations?${params.toString()}`);
-      setComplaints(res.data);
+      const [locationsRes, summaryRes] = await Promise.all([
+        axios.get(`${API_URL}/analytics/complaint-locations?${params.toString()}`),
+        axios.get(`${API_URL}/analytics/summary`)
+      ]);
+
+      setComplaints(locationsRes.data);
+      setSummary(summaryRes.data);
     } catch (err) {
-      console.error('Fetch locations error:', err);
+      console.error('Fetch analytics error:', err);
+      setError('Server connection failed. Could not load geospatial or summary data.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLocations();
+    fetchData();
   }, [filters, API_URL]);
 
   useEffect(() => {
     if (socket) {
-      const handleNew = () => fetchLocations();
-      const handleUpdate = () => fetchLocations();
-
-      socket.on('complaintCreated', handleNew);
-      socket.on('complaintUpdated', handleUpdate);
-
+      const handleRefresh = () => fetchData();
+      socket.on('complaintCreated', handleRefresh);
+      socket.on('complaintUpdated', handleRefresh);
       return () => {
-        socket.off('complaintCreated', handleNew);
-        socket.off('complaintUpdated', handleUpdate);
+        socket.off('complaintCreated', handleRefresh);
+        socket.off('complaintUpdated', handleRefresh);
       };
     }
   }, [socket]);
 
-  // Statistics calculation
-  const total = complaints.length;
-  const categoriesCount = complaints.reduce((acc, c) => {
-    acc[c.category] = (acc[c.category] || 0) + 1;
-    return acc;
-  }, {});
-  const topCategory = Object.entries(categoriesCount).sort((a,b) => b[1] - a[1])[0]?.[0] || 'N/A';
+  // Chart Data Preparation
+  const categoryData = summary ? {
+    labels: Object.keys(summary.categoryCounts),
+    datasets: [{
+      data: Object.values(summary.categoryCounts),
+      backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#64748B'],
+      borderWidth: 0
+    }]
+  } : null;
+
+  const statusData = summary ? {
+    labels: Object.keys(summary.statusCounts),
+    datasets: [{
+      label: 'Complaints',
+      data: Object.values(summary.statusCounts),
+      backgroundColor: '#3B82F6',
+      borderRadius: 8
+    }]
+  } : null;
+
+  const trendData = summary ? {
+    labels: Object.keys(summary.dailyTrend).map(d => d.split('-').slice(1).join('/')),
+    datasets: [{
+      label: 'New Reports',
+      data: Object.values(summary.dailyTrend),
+      borderColor: '#3B82F6',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  } : null;
 
   return (
     <motion.div
@@ -78,6 +113,9 @@ export default function Analytics() {
           <p className="text-gray-500 text-sm mt-1">Real-time complaint density and hotspot visualization dashboard.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={fetchData} className="p-2 bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-primary transition-all">
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </button>
           <div className="flex flex-col items-end">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status</p>
             <p className="text-xs font-bold text-emerald-500 flex items-center gap-1.5 mt-1">
@@ -88,56 +126,90 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard title="Mapped Cases" value={total} icon={MapIcon} color="text-primary" bgGradient="bg-gradient-to-br from-blue-600 to-indigo-500" delay={0.1} />
-        <StatsCard title="Top Hotspot" value={topCategory} icon={AlertCircle} color="text-rose-500" bgGradient="bg-gradient-to-br from-rose-500 to-pink-500" delay={0.2} />
-        <StatsCard title="Total Density" value={`${total > 0 ? (total * 1.2).toFixed(1) : 0}%`} icon={TrendingUp} color="text-amber-500" bgGradient="bg-gradient-to-br from-amber-500 to-orange-400" delay={0.3} />
-        <StatsCard title="Filtered Events" value={total} icon={FileText} color="text-indigo-500" bgGradient="bg-gradient-to-br from-indigo-500 to-purple-500" delay={0.4} />
-      </div>
-
-      <AnalyticsFilters filters={filters} setFilters={setFilters} />
-
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-        className="premium-card p-1 bg-white relative overflow-hidden"
-      >
-        <HeatmapMap complaints={complaints} />
-        
-        {loading && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Compiling Geospatial Data...</p>
-            </div>
+      {error ? (
+        <div className="premium-card p-12 text-center bg-rose-50 border border-rose-100 mb-8">
+          <AlertCircle className="text-rose-400 mx-auto mb-4" size={48} />
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Analytics Offline</h3>
+          <p className="text-slate-500 mb-6">{error}</p>
+          <button onClick={fetchData} className="premium-button bg-primary text-white px-8">Retry Connection</button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatsCard title="Mapped Cases" value={summary?.total || 0} icon={MapIcon} color="text-primary" bgGradient="bg-gradient-to-br from-blue-600 to-indigo-500" delay={0.1} />
+            <StatsCard title="Top Hotspot" value={summary ? Object.entries(summary.categoryCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || 'N/A' : '...'} icon={AlertCircle} color="text-rose-500" bgGradient="bg-gradient-to-br from-rose-500 to-pink-500" delay={0.2} />
+            <StatsCard title="Avg Priority" value={summary ? Object.entries(summary.urgencyCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || 'N/A' : '...'} icon={TrendingUp} color="text-amber-500" bgGradient="bg-gradient-to-br from-amber-500 to-orange-400" delay={0.3} />
+            <StatsCard title="Live Reports" value={complaints.length} icon={FileText} color="text-indigo-500" bgGradient="bg-gradient-to-br from-indigo-500 to-purple-500" delay={0.4} />
           </div>
-        )}
-      </motion.div>
 
-      <div className="mt-8 grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 premium-card p-6 bg-slate-900 text-white">
-          <h3 className="text-xs font-black uppercase tracking-widest mb-4 opacity-60 text-white">Heatmap Color Index</h3>
-          <div className="flex items-center gap-6">
-            <div className="flex-1 space-y-2">
-              <div className="h-2 bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 rounded-full"></div>
-              <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter opacity-80">
-                <span>Low Intensity</span>
-                <span>Critical Density</span>
+          <AnalyticsFilters filters={filters} setFilters={setFilters} />
+
+          <div className="grid lg:grid-cols-3 gap-8 mb-8">
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.98 }}
+               animate={{ opacity: 1, scale: 1 }}
+               className="lg:col-span-2 premium-card p-1 bg-white relative overflow-hidden h-[500px]"
+             >
+               <HeatmapMap complaints={complaints} />
+               {loading && (
+                 <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-2xl">
+                   <div className="flex flex-col items-center gap-3">
+                     <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Compiling Geospatial Data...</p>
+                   </div>
+                 </div>
+               )}
+             </motion.div>
+
+             <div className="space-y-6">
+                <div className="premium-card p-6 bg-white h-[240px] flex flex-col items-center justify-center">
+                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                     <PieIcon size={14} /> Category Distribution
+                   </h3>
+                   <div className="w-full h-full max-w-[180px]">
+                      {categoryData && <Pie data={categoryData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />}
+                   </div>
+                </div>
+                <div className="premium-card p-6 bg-white h-[235px] flex flex-col items-center justify-center">
+                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                     <BarChart3 size={14} /> Status Overview
+                   </h3>
+                   <div className="w-full h-full">
+                      {statusData && <Bar data={statusData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }} />}
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 premium-card p-6 bg-white overflow-hidden">
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                 <TrendingUp size={14} /> Reporting Trend (Last 7 Days)
+               </h3>
+               <div className="h-[200px] w-full">
+                  {trendData && <Line data={trendData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }} />}
+               </div>
+            </div>
+            
+            <div className="premium-card p-6 bg-slate-900 text-white">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-4 opacity-60 text-white">Heatmap Index</h3>
+              <div className="space-y-4">
+                <div className="h-2 bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 rounded-full" />
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-tighter opacity-80">
+                  <span>Low Intensity</span>
+                  <span>Critical Density</span>
+                </div>
+                <p className="text-[11px] text-slate-400 italic leading-relaxed pt-2">
+                  Highlighted clusters indicate areas with multiple overlapping civic issues requiring prioritized intervention.
+                </p>
+                <div className="pt-4 border-t border-white/10">
+                   <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Download Spatial PDF</button>
+                </div>
               </div>
             </div>
-            <div className="w-px h-10 bg-white/10"></div>
-            <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-[240px]">
-              Regions highlighted in <span className="text-rose-400 font-bold">Red</span> indicate high-priority clusters requiring immediate resource allocation.
-            </p>
           </div>
-        </div>
-        <div className="premium-card p-6 bg-white border-2 border-primary/5">
-          <h3 className="text-[10px] font-black uppercase tracking-widest mb-3 text-slate-400">Export Options</h3>
-          <button className="w-full premium-button bg-slate-100 text-slate-800 text-[10px] mb-2">Download Heatmap Overlay</button>
-          <button className="w-full premium-button bg-primary text-white text-[10px]">Generate Spatial Report</button>
-        </div>
-      </div>
+        </>
+      )}
     </motion.div>
   );
 }

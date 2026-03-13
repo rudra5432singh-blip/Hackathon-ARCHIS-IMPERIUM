@@ -81,6 +81,14 @@ const Complaint = sequelize.define('Complaint', {
   phone_number: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  citizen_recommendation: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  authority_recommendation: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   timestamps: true,

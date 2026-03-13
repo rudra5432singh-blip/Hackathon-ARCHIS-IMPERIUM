@@ -4,5 +4,6 @@ const analyticsController = require('../controllers/analyticsController');
 const { auth } = require('../middleware/auth');
 
 router.get('/complaint-locations', auth, analyticsController.getComplaintLocations);
+router.get('/summary',             auth, analyticsController.getAnalyticsSummary);
 
 module.exports = router;

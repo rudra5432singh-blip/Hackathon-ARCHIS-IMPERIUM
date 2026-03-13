@@ -1,54 +1,89 @@
 const twilio = require('twilio');
 require('dotenv').config();
 
-// Initialize Twilio client only if credentials exist
+// ─── Twilio Setup ──────────────────────────────────────────────────────────────
 let client = null;
-if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-  try {
+let twilioConfigured = false;
+
+try {
+  if (
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_PHONE_NUMBER &&
+    process.env.TWILIO_ACCOUNT_SID.startsWith('AC')
+  ) {
     client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-  } catch (err) {
-    console.error('Failed to initialize Twilio client:', err);
+    twilioConfigured = true;
+    console.log('[SMS] Twilio client initialized.');
+  } else {
+    console.log('[SMS] Twilio not configured — will use simulated SMS logs.');
   }
+} catch (err) {
+  console.error('[SMS] Failed to initialize Twilio:', err.message);
 }
 
+// ─── Message Builder ──────────────────────────────────────────────────────────
+function buildMessage(name, complaint_id, summary) {
+  return (
+    `Hello ${name},\n\n` +
+    `Your complaint has been registered successfully.\n\n` +
+    `Complaint ID: ${complaint_id}\n\n` +
+    `Issue:\n${summary}\n\n` +
+    `Status:\nComplaint Received\n\n` +
+    `You will receive updates as the issue progresses.\n` +
+    `Thank you for helping improve the city.\n` +
+    `– AI Civic Complaint Resolver`
+  );
+}
+
+// ─── Simulated SMS (fallback) ─────────────────────────────────────────────────
+function simulateSMS(phone_number, complaint_id, summary, name) {
+  const message = buildMessage(name, complaint_id, summary);
+  console.log('\n============================================================');
+  console.log('[SIMULATED SMS] → To:', phone_number);
+  console.log('------------------------------------------------------------');
+  console.log(message);
+  console.log('============================================================\n');
+}
+
+// ─── Main Export ──────────────────────────────────────────────────────────────
 /**
- * Sends a notification using Twilio SMS or WhatsApp
- * @param {string} phone_number - The recipient's phone number
- * @param {string} complaint_id - The ID of the drafted complaint
- * @param {string} summary - The title/summary of the complaint
- * @param {string} name - The user's name
+ * Send an SMS/WhatsApp notification.
+ * Falls back to console simulation when Twilio is not configured.
+ *
+ * @param {string} phone_number  Recipient number (with or without +)
+ * @param {string} complaint_id  Complaint ID
+ * @param {string} summary       Short issue summary
+ * @param {string} name          Citizen name
  */
 const sendNotification = async (phone_number, complaint_id, summary, name = 'Citizen') => {
   if (!phone_number) {
-    console.log('No phone number provided, skipping SMS notification.');
-    return;
-  }
-  
-  if (!client || !process.env.TWILIO_PHONE_NUMBER) {
-    console.warn('Twilio credentials not configured. Skipping SMS notification to:', phone_number);
+    console.log('[SMS] No phone number provided — skipping notification.');
     return;
   }
 
-  const messageBody = `Hello ${name},\n\nYour complaint has been successfully registered.\n\nComplaint ID: ${complaint_id}\n\nIssue:\n${summary}\n\nCurrent Status:\nComplaint Received\n\nYou will receive updates as the issue progresses.\n\nThank you for helping improve the city.\n– AI Civic Complaint Resolver`;
+  const messageBody = buildMessage(name, complaint_id, summary);
+  const formattedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
+
+  if (!twilioConfigured) {
+    simulateSMS(formattedPhone, complaint_id, summary, name);
+    return;
+  }
 
   try {
-    // Basic formatting: ensure it starts with '+'
-    const formattedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
-
     const message = await client.messages.create({
       body: messageBody,
       from: process.env.TWILIO_PHONE_NUMBER,
       to: formattedPhone
     });
-
-    console.log(`Notification sent successfully to ${formattedPhone}. SID: ${message.sid}`);
+    console.log(`[SMS] Sent successfully → ${formattedPhone} | SID: ${message.sid}`);
     return message;
   } catch (error) {
-    // Log error but don't throw to prevent failing the main complaint submission
-    console.error('Failed to send Twilio notification:', error.message);
+    // Log error but do NOT crash the request — treat as simulated
+    console.error('[SMS] Twilio send failed:', error.message);
+    console.log('[SMS] Falling back to simulated SMS...');
+    simulateSMS(formattedPhone, complaint_id, summary, name);
   }
 };
 
-module.exports = {
-  sendNotification
-};
+module.exports = { sendNotification };

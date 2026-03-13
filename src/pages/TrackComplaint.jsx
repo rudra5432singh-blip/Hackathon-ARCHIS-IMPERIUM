@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, AlertCircle, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Filter, AlertCircle, ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge'
 import { TableRowSkeleton } from '../components/LoaderSkeleton'
@@ -12,27 +12,33 @@ const ALL_STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Escalated']
 export default function TrackComplaint() {
   const { API_URL } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [allComplaints, setAllComplaints] = useState([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('All')
 
+  const fetchComplaints = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await axios.get(`${API_URL}/complaints`);
+      setAllComplaints(res.data);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError('Failed to load complaints. Check your server connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchComplaints = async () => {
-      try {
-        const res = await axios.get(`${API_URL}/complaints`);
-        setAllComplaints(res.data);
-      } catch (err) {
-        console.error('Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchComplaints();
   }, [API_URL]);
 
   const filtered = allComplaints.filter(c => {
-    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase()) || 
-                       c.id.toLowerCase().includes(search.toLowerCase()) || 
+    if (!c) return false;
+    const matchSearch = (c.title || '').toLowerCase().includes(search.toLowerCase()) || 
+                       (c.id || '').toLowerCase().includes(search.toLowerCase()) || 
                        (c.location && c.location.toLowerCase().includes(search.toLowerCase()))
     const matchStatus = status === 'All' || c.status === status
     return matchSearch && matchStatus
@@ -45,9 +51,18 @@ export default function TrackComplaint() {
       transition={{ duration: 0.4 }}
       className="max-w-6xl mx-auto px-4 py-8 lg:px-8"
     >
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-800">Track Complaints</h1>
-        <p className="text-gray-500 text-sm mt-1">Search, filter, and monitor all submitted complaints.</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-gray-800">Track Complaints</h1>
+          <p className="text-gray-500 text-sm mt-1">Search, filter, and monitor all submitted complaints.</p>
+        </div>
+        <button 
+          onClick={fetchComplaints}
+          disabled={loading}
+          className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-primary transition-all shadow-sm"
+        >
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
@@ -79,10 +94,16 @@ export default function TrackComplaint() {
             </tbody>
           </table>
         </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-rose-50 rounded-2xl border border-rose-100">
+          <AlertCircle size={40} className="text-rose-400 mb-3" />
+          <p className="text-rose-600 font-bold mb-4">{error}</p>
+          <button onClick={fetchComplaints} className="premium-button bg-primary text-white px-6">Retry Loading</button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
           <AlertCircle size={40} className="text-gray-300 mb-3" />
-          <p className="text-gray-500 font-medium">No complaints found</p>
+          <p className="text-gray-500 font-medium">No complaints found matching your criteria.</p>
         </div>
       ) : (
         <>
@@ -116,12 +137,12 @@ export default function TrackComplaint() {
                       </Link>
                     </td>
                     <td className="px-6 py-5">
-                      <p className="text-xs font-bold text-slate-700 truncate max-w-[200px]">{c.title}</p>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase block mt-1">{c.category}</span>
+                      <p className="text-xs font-bold text-slate-700 truncate max-w-[200px]">{c.title || 'Untitled'}</p>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase block mt-1">{c.category || 'Other'}</span>
                     </td>
                     <td className="px-6 py-5">
-                      <span className="text-[11px] text-slate-500 font-black tracking-tighter uppercase">
-                        {c.Department?.name || 'Unassigned'}
+                      <span className="text-[11px] text-slate-500 font-black tracking-tighter uppercase whitespace-nowrap">
+                        {c.Department?.name || c.department || 'Unassigned'}
                       </span>
                     </td>
                     <td className="px-6 py-5"><StatusBadge status={c.status} /></td>
