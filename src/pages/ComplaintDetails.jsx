@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Clock, User, Building, MessageSquare, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock, User, Building, MessageSquare, CheckCircle, AlertCircle, Loader2, ThumbsUp } from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -13,6 +13,7 @@ export default function ComplaintDetails() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [comment, setComment] = useState('')
+  const [voting, setVoting] = useState(false)
 
   const fetchDetails = async () => {
     try {
@@ -54,6 +55,25 @@ export default function ComplaintDetails() {
     }
   };
 
+  const handleVote = async () => {
+    if (voting) return;
+    setVoting(true);
+    try {
+      // Temporary token fallback for demo
+      const token = localStorage.getItem('token') || '';
+      const res = await axios.post(`${API_URL}/complaints/${id}/vote`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Dynamically update the count locally to avoid a full fetch flash
+      setComplaint(prev => ({ ...prev, votes: res.data.votes }));
+    } catch (err) {
+      console.error('Voting error:', err);
+      alert(err.response?.data?.message || 'Error voting');
+    } finally {
+      setVoting(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin text-primary" size={32} /></div>;
   if (!complaint) return <div className="p-10 text-center">Complaint not found</div>;
 
@@ -87,6 +107,22 @@ export default function ComplaintDetails() {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Reported On</p>
                   <p className="text-xs font-bold text-slate-700">{new Date(complaint.created_at).toLocaleDateString()}</p>
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-8">
+              <div className="flex items-center gap-3">
+                 <button 
+                   onClick={handleVote} 
+                   disabled={voting}
+                   className="group flex items-center gap-2 px-6 py-3 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+                 >
+                    <ThumbsUp size={16} className={`transition-transform duration-300 ${voting ? 'animate-bounce' : 'group-hover:scale-110'}`} />
+                    <span className="text-xs font-black uppercase tracking-widest">Support This</span>
+                 </button>
+                 <div className="flex flex-col items-center justify-center min-w-[50px] p-2 bg-slate-50 text-slate-700 rounded-lg font-black text-lg shadow-inner">
+                    {complaint.votes || 0}
+                 </div>
               </div>
             </div>
 

@@ -18,13 +18,37 @@ const Complaint = sequelize.define('Complaint', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  department: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   department_id: {
     type: DataTypes.UUID,
     allowNull: true
   },
   status: {
-    type: DataTypes.ENUM('Pending', 'In Progress', 'Resolved', 'Escalated'),
+    type: DataTypes.STRING,
     defaultValue: 'Pending'
+  },
+  urgency: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  summary: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  workflow: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
+  current_stage: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  estimated_resolution_time: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
   image_url: {
     type: DataTypes.STRING,
@@ -49,6 +73,10 @@ const Complaint = sequelize.define('Complaint', {
   longitude: {
     type: DataTypes.FLOAT,
     allowNull: true
+  },
+  votes: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   }
 }, {
   timestamps: true,

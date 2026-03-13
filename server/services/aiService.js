@@ -1,44 +1,74 @@
-const classifyComplaint = (description) => {
-  const desc = description.toLowerCase();
-  
-  const mappings = [
-    { keywords: ['road', 'pothole', 'street', 'highway'], category: 'road', priority: 'normal', deptCode: 'ROAD' },
-    { keywords: ['garbage', 'waste', 'trash', 'dump', 'smell', 'litter'], category: 'garbage', priority: 'normal', deptCode: 'GARBAGE' },
-    { keywords: ['light', 'streetlight', 'dark', 'lamp', 'electricity', 'power'], category: 'streetlight', priority: 'normal', deptCode: 'ELECTRICITY' },
-    { keywords: ['water', 'leak', 'pipe', 'supply', 'shortage'], category: 'water', priority: 'high', deptCode: 'WATER' },
-    { keywords: ['drain', 'sewage', 'overflow', 'gutter', 'stink'], category: 'drainage', priority: 'high', deptCode: 'DRAINAGE' },
-    { keywords: ['electric', 'short circuit', 'wire', 'shock', 'spark'], category: 'electricity', priority: 'urgent', deptCode: 'ELECTRICITY' }
-  ];
+const { OpenAI } = require('openai');
 
-  for (const m of mappings) {
-    if (m.keywords.some(k => desc.includes(k))) {
-      // Check for urgent keywords to upgrade priority
-      let finalPriority = m.priority;
-      if (desc.includes('danger') || desc.includes('emergency') || desc.includes('injury') || desc.includes('fire')) {
-        finalPriority = 'urgent';
-      } else if (desc.includes('urgent') || desc.includes('asap') || desc.includes('critical')) {
-        finalPriority = 'high';
-      }
-      
-      const deptNames = {
-        'ROAD': 'Road Maintenance Department',
-        'GARBAGE': 'Sanitation Department',
-        'ELECTRICITY': 'Electricity Department',
-        'WATER': 'Water Supply Department',
-        'DRAINAGE': 'Drainage Department'
-      };
-      
-      return { 
-        category: m.category, 
-        priority: finalPriority, 
-        deptCode: m.deptCode,
-        deptName: deptNames[m.deptCode] || 'Unassigned',
-        department: deptNames[m.deptCode] || 'Unassigned'
-      };
-    }
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || 'dummy_key'
+});
+
+const classifyComplaint = async (description) => {
+  try {
+    const prompt = `You are an AI civic issue analyzer for a system called Antigravity.
+
+Analyze the citizen complaint and return structured JSON.
+
+Tasks:
+1 Classify the complaint category
+2 Identify responsible department
+3 Detect urgency level
+4 Generate short official summary
+5 Suggest resolution workflow
+6 Estimate resolution time
+
+Return ONLY JSON in this format:
+
+{
+  "category":"",
+  "department":"",
+  "urgency":"",
+  "summary":"",
+  "resolution_workflow":[
+    "complaint_received",
+    "department_assigned",
+    "inspection_scheduled",
+    "work_in_progress",
+    "resolved"
+  ],
+  "estimated_resolution_time":""
+}
+`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: "Complaint description:\n" + description }
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    });
+
+    const resultText = response.choices[0].message.content;
+    const aiResult = JSON.parse(resultText);
+    
+    return {
+      category: aiResult.category || "other",
+      department: aiResult.department || "unassigned",
+      urgency: aiResult.urgency || "normal",
+      summary: aiResult.summary || description.substring(0, 100),
+      resolution_workflow: aiResult.resolution_workflow || ["complaint_received", "department_assigned", "inspection_scheduled", "work_in_progress", "resolved"],
+      estimated_resolution_time: aiResult.estimated_resolution_time || "48 hours"
+    };
+  } catch (error) {
+    console.error("AI Analysis error:", error);
+    // Fallback if AI fails
+    return {
+      category: "other",
+      department: "unassigned",
+      urgency: "normal",
+      summary: description.substring(0, 100),
+      resolution_workflow: ["complaint_received", "department_assigned", "inspection_scheduled", "work_in_progress", "resolved"],
+      estimated_resolution_time: "48 hours"
+    };
   }
-
-  return { category: 'other', priority: 'normal', deptCode: null, deptName: 'Unassigned', department: 'Unassigned' };
 };
 
 module.exports = { classifyComplaint };

@@ -14,10 +14,8 @@ export default function Navbar({ onMenuClick }) {
 
   const navLinks = [
     { to: '/', label: 'Home' },
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/analytics', label: 'Analytics' },
     { to: '/submit', label: 'Submit Complaint' },
-    { to: '/track', label: 'Track' },
+    { to: '/dashboard', label: 'Admin Dashboard' },
   ]
 
   const notifications = [
@@ -44,15 +42,15 @@ export default function Navbar({ onMenuClick }) {
           
           <Link to="/" className="flex items-center gap-3 no-underline group">
             <motion.div 
-              whileHover={{ rotate: -10, scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center shadow-[0_8px_16px_rgba(37,99,235,0.2)] ring-4 ring-white"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden bg-white shadow-sm ring-2 ring-primary/20"
             >
-              <Shield size={20} className="text-white" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
             </motion.div>
             <div className="hidden sm:block">
-              <p className="text-[14px] font-black text-slate-800 leading-none tracking-tighter">ARCHIS <span className="text-primary tracking-[0.2em] font-extrabold ml-0.5">IMPERIUM</span></p>
-              <p className="text-[9px] text-emerald-600 font-black tracking-[0.3em] uppercase mt-1 leading-none opacity-80">Smart City Shield</p>
+              <p className="text-[15px] font-black tracking-tight text-slate-800 leading-none">AI Civic Complaint <span className="text-primary">Resolver</span></p>
+              <p className="text-[10px] text-slate-500 font-semibold tracking-widest mt-0.5 uppercase">Smart Platform</p>
             </div>
           </Link>
         </div>

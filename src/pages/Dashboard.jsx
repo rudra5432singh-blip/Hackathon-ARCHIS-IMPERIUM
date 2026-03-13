@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Filter, Clock, CheckCircle2, AlertCircle, ChevronRight, X, TrendingUp, FileText } from 'lucide-react'
+import { Search, Filter, Clock, CheckCircle2, AlertCircle, ChevronRight, X, TrendingUp, FileText, Flame, Zap } from 'lucide-react'
 import StatsCard from '../components/StatsCard'
 import StatusBadge from '../components/StatusBadge'
+import ComplaintHeatmap from '../components/ComplaintHeatmap'
 import LoaderSkeleton, { TableRowSkeleton, StatsCardSkeleton } from '../components/LoaderSkeleton'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -21,6 +22,8 @@ export default function Dashboard({ showToast }) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [allComplaints, setAllComplaints] = useState([])
+  const [popularComplaints, setPopularComplaints] = useState([])
+  const [demoLoading, setDemoLoading] = useState(false)
 
   const fetchComplaints = async () => {
     try {
@@ -33,8 +36,37 @@ export default function Dashboard({ showToast }) {
     }
   };
 
+  const fetchPopular = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/complaints/popular`);
+      setPopularComplaints(res.data);
+    } catch (err) {
+      console.error('Popular fetch error:', err);
+    }
+  };
+
+  const generateDemoComplaints = async () => {
+    setDemoLoading(true);
+    try {
+      // Temporary token generation bypassing strict role checks for demo
+      const token = localStorage.getItem('token') || '';
+      await axios.post(`${API_URL}/complaints/generate-demo-complaints`, {}, {
+         headers: { Authorization: `Bearer ${token}` }
+      });
+      showToast && showToast('Demo complaints generated!', 'success');
+      fetchComplaints();
+      fetchPopular();
+    } catch (err) {
+      console.error('Demo generation error:', err);
+      showToast && showToast('Failed to generate demo data', 'error');
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchComplaints();
+    fetchPopular();
   }, [API_URL]);
 
   useEffect(() => {
@@ -107,14 +139,23 @@ export default function Dashboard({ showToast }) {
         )}
       </div>
 
+      {/* Heatmap Section */}
+      <div className="mb-8">
+        {loading ? (
+          <div className="w-full h-[400px] bg-white rounded-[2rem] animate-pulse"></div>
+        ) : (
+          <ComplaintHeatmap complaints={allComplaints} />
+        )}
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-8">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
-          className="lg:col-span-2 premium-card overflow-hidden"
+          className="lg:col-span-2 premium-card overflow-hidden flex flex-col h-[600px]"
         >
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap bg-gray-50/30">
+          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap bg-white">
             <h2 className="text-sm font-bold text-slate-800 tracking-tight">Active Complaints</h2>
             <div className="flex items-center gap-3">
               <div className="relative group">
@@ -137,12 +178,12 @@ export default function Dashboard({ showToast }) {
             </div>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100">
+          <div className="overflow-auto flex-1 custom-scrollbar">
+            <table className="w-full relative">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-50 border-b border-gray-100 shadow-sm">
                   {['ID', 'Title', 'Dept', 'Status', 'Date'].map(h => (
-                    <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-6 py-3.5 text-left text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] whitespace-nowrap backdrop-blur-md bg-slate-50/90">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -170,7 +211,14 @@ export default function Dashboard({ showToast }) {
                         </Link>
                       </td>
                       <td className="px-6 py-5">
-                        <p className="text-xs font-bold text-slate-700 max-w-[200px] truncate">{c.title}</p>
+                        <p className="text-xs font-bold text-slate-700 max-w-[200px] truncate flex items-center gap-2">
+                           {c.title}
+                           {c.votes > 10 && (
+                             <span className="flex items-center gap-1 bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded text-[8px] tracking-widest uppercase">
+                               <Flame size={10} /> Popular
+                             </span>
+                           )}
+                        </p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[9px] text-slate-400 font-bold uppercase">{c.category}</span>
                           <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter ${
@@ -201,9 +249,70 @@ export default function Dashboard({ showToast }) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
-          className="premium-card p-6"
+          className="flex flex-col gap-8"
         >
-          <h2 className="text-sm font-bold text-slate-800 mb-6 tracking-tight">System Performance</h2>
+          {/* Trending Civic Issues Widget */}
+          <div className="premium-card p-6 border-t-4 border-orange-400">
+             <div className="flex items-center gap-2 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
+                   <Flame size={16} />
+                </div>
+                <div>
+                   <h2 className="text-sm font-bold text-slate-800 tracking-tight">Trending Civic Issues</h2>
+                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Top Voted Complaints</p>
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                {popularComplaints.slice(0, 3).map((comp, idx) => (
+                   <div key={comp.id} className="group relative p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all cursor-pointer">
+                      <div className="absolute -left-2 -top-2 w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-black shadow-sm z-10">
+                         #{idx + 1}
+                      </div>
+                      <div className="flex items-start justify-between gap-3 relative z-0">
+                         <div className="flex-1">
+                            <h3 className="text-xs font-bold text-slate-800 line-clamp-1">{comp.title}</h3>
+                            <div className="flex items-center gap-2 mt-2">
+                               <span className="text-[9px] text-slate-500 font-bold uppercase">
+                                  {comp.category || 'General'}
+                               </span>
+                               <span className="w-1 h-1 rounded-full bg-slate-200" />
+                               <span className={`text-[9px] font-black uppercase tracking-wider ${
+                                  comp.urgency === 'High' ? 'text-red-500' : 'text-orange-500'
+                               }`}>
+                                  {comp.urgency || 'Normal'}
+                               </span>
+                            </div>
+                         </div>
+                         <div className={`flex flex-col items-center justify-center min-w-[48px] p-2 rounded-lg border ${
+                            comp.votes > 15 ? 'bg-red-50 border-red-100 text-red-600' : 
+                            comp.votes > 5 ? 'bg-orange-50 border-orange-100 text-orange-600' : 
+                            'bg-green-50 border-green-100 text-green-600'
+                         }`}>
+                            <span className="text-[14px] font-black leading-none">{comp.votes || 0}</span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest mt-1 opacity-80">Votes</span>
+                         </div>
+                      </div>
+                   </div>
+                ))}
+                {popularComplaints.length === 0 && (
+                   <p className="text-xs text-center text-slate-400 py-4 font-medium">No trending issues yet.</p>
+                )}
+             </div>
+          </div>
+
+          <div className="premium-card p-6">
+            <h2 className="text-sm font-bold text-slate-800 mb-6 tracking-tight flex items-center justify-between">
+              System Performance
+              <button 
+                onClick={generateDemoComplaints}
+                disabled={demoLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors disabled:opacity-50"
+              >
+                <Zap size={10} />
+                {demoLoading ? 'Generating...' : 'Gen Demo'}
+              </button>
+            </h2>
           <div className="space-y-6">
             {DEPARTMENTS.map((d, i) => (
               <div key={d.name}>
@@ -226,6 +335,7 @@ export default function Dashboard({ showToast }) {
           <div className="mt-8 flex flex-col gap-3">
             <button className="premium-button w-full bg-primary text-white text-[10px]">Export System Logs</button>
             <button className="premium-button w-full border border-slate-200 text-slate-600 text-[10px]">Access Audit Trail</button>
+          </div>
           </div>
         </motion.div>
       </div>

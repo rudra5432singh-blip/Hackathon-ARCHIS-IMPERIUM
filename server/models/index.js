@@ -3,6 +3,8 @@ const Complaint = require('./Complaint');
 const Department = require('./Department');
 const ComplaintUpdate = require('./ComplaintUpdate');
 
+const ComplaintVote = require('./ComplaintVote');
+
 // User <-> Complaint (Created by)
 User.hasMany(Complaint, { foreignKey: 'created_by' });
 Complaint.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
@@ -23,4 +25,11 @@ ComplaintUpdate.belongsTo(Complaint, { foreignKey: 'complaint_id' });
 User.hasMany(ComplaintUpdate, { foreignKey: 'updated_by' });
 ComplaintUpdate.belongsTo(User, { foreignKey: 'updated_by', as: 'updater' });
 
-module.exports = { User, Complaint, Department, ComplaintUpdate };
+// Citizen Complaint Voting System
+Complaint.hasMany(ComplaintVote, { foreignKey: 'complaint_id' });
+ComplaintVote.belongsTo(Complaint, { foreignKey: 'complaint_id' });
+
+User.hasMany(ComplaintVote, { foreignKey: 'voter_id' });
+ComplaintVote.belongsTo(User, { foreignKey: 'voter_id' });
+
+module.exports = { User, Complaint, Department, ComplaintUpdate, ComplaintVote };

@@ -4,7 +4,17 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
 const sequelize = require('./config/db');
-const { Department, Complaint } = require('./models');
+const { Department, Complaint, User, ComplaintVote } = require('./models');
+
+// Define relationships
+User.hasMany(Complaint, { foreignKey: 'created_by' });
+Complaint.belongsTo(User, { foreignKey: 'created_by' });
+
+Complaint.hasMany(ComplaintVote, { foreignKey: 'complaint_id' });
+ComplaintVote.belongsTo(Complaint, { foreignKey: 'complaint_id' });
+
+User.hasMany(ComplaintVote, { foreignKey: 'voter_id' });
+ComplaintVote.belongsTo(User, { foreignKey: 'voter_id' });
 
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +68,42 @@ const startServer = async () => {
       if (!colNames.includes('priority')) {
         await sequelize.query("ALTER TABLE Complaints ADD COLUMN priority TEXT DEFAULT 'normal'");
       }
+      if (!colNames.includes('department')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN department TEXT');
+      }
+      if (!colNames.includes('urgency')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN urgency TEXT');
+      }
+      if (!colNames.includes('summary')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN summary TEXT');
+      }
+      if (!colNames.includes('workflow')) {
+        await sequelize.query('ALTER TABLE Complaints ADD COLUMN workflow JSON');
+      }
+      if (!colNames.includes('current_stage')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN current_stage TEXT');
+          console.log('Added current_stage column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
+      if (!colNames.includes('estimated_resolution_time')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN estimated_resolution_time TEXT');
+          console.log('Added estimated_resolution_time column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
+      if (!colNames.includes('votes')) {
+        try {
+          await sequelize.query('ALTER TABLE Complaints ADD COLUMN votes INTEGER DEFAULT 0');
+          console.log('Added votes column successfully.');
+        } catch (e) {
+          if (!e.message.includes('duplicate column name')) console.log(e.message);
+        }
+      }
     } catch (err) {
       console.warn('SQLite migration check failed:', err.message);
     }
@@ -83,6 +129,18 @@ const startServer = async () => {
     // Seed some sample complaints with coordinates if none exist
     const complaintCount = await Complaint.count();
     if (complaintCount === 0) {
+      const mockAdminId = '00000000-0000-0000-0000-000000000000';
+      const userCount = await User.count({ where: { id: mockAdminId } });
+      if (userCount === 0) {
+        await User.create({
+          id: mockAdminId,
+          name: 'System Admin',
+          email: 'admin@system.local',
+          password: 'mockpassword', // usually hashed, but mock is ok here
+          role: 'Department Admin'
+        });
+      }
+
       const sampleCoords = [
         { lat: 12.9716, lng: 77.5946, cat: 'Roads & Infrastructure' },
         { lat: 12.9352, lng: 77.6245, cat: 'Water Supply' },
